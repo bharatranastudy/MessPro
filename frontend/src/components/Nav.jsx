@@ -11,13 +11,29 @@ import { FaPlus } from "react-icons/fa6";
 import { TbReceipt2 } from "react-icons/tb";
 import { useNavigate } from 'react-router-dom';
 function Nav() {
-    const { userData, currentCity ,cartItems} = useSelector(state => state.user)
+    const { userData, currentCity ,cartItems, socket} = useSelector(state => state.user)
         const { myShopData} = useSelector(state => state.owner)
     const [showInfo, setShowInfo] = useState(false)
     const [showSearch, setShowSearch] = useState(false)
     const [query,setQuery]=useState("")
+    const [isConnected, setIsConnected] = useState(socket?.connected || false)
     const dispatch = useDispatch()
     const navigate=useNavigate()
+
+    useEffect(() => {
+        if (!socket) return
+        const onConnect = () => setIsConnected(true)
+        const onDisconnect = () => setIsConnected(false)
+
+        socket.on('connect', onConnect)
+        socket.on('disconnect', onDisconnect)
+        setIsConnected(socket.connected)
+
+        return () => {
+            socket.off('connect', onConnect)
+            socket.off('disconnect', onDisconnect)
+        }
+    }, [socket])
     const handleLogOut = async () => {
         try {
             const result = await axios.get(`${serverUrl}/api/auth/signout`, { withCredentials: true })
@@ -60,7 +76,7 @@ handleSearchItems()
 
 
 
-            <h1 className='text-3xl font-bold mb-2 text-[#ff4d2d]'>Vingo</h1>
+            <h1 className='text-3xl font-bold mb-2 text-[#ff4d2d]'>MessPro</h1>
             {userData.role == "user" && <div className='md:w-[60%] lg:w-[40%] h-[70px] bg-white shadow-xl rounded-lg items-center gap-[20px] hidden md:flex'>
                 <div className='flex items-center w-[30%] overflow-hidden gap-[10px] px-[10px] border-r-[2px] border-gray-400'>
                     <FaLocationDot size={25} className=" text-[#ff4d2d]" />
@@ -87,11 +103,11 @@ handleSearchItems()
                     <div className='hidden md:flex items-center gap-2 cursor-pointer relative px-3 py-1 rounded-lg bg-[#ff4d2d]/10 text-[#ff4d2d] font-medium' onClick={()=>navigate("/my-orders")}>
                       <TbReceipt2 size={20}/>
                       <span>My Orders</span>
-                      <span className='absolute -right-2 -top-2 text-xs font-bold text-white bg-[#ff4d2d] rounded-full px-[6px] py-[1px]'>0</span>
+                      
                     </div>
                      <div className='md:hidden flex items-center gap-2 cursor-pointer relative px-3 py-1 rounded-lg bg-[#ff4d2d]/10 text-[#ff4d2d] font-medium' onClick={()=>navigate("/my-orders")}>
                       <TbReceipt2 size={20}/>
-                      <span className='absolute -right-2 -top-2 text-xs font-bold text-white bg-[#ff4d2d] rounded-full px-[6px] py-[1px]'>0</span>
+                      
                     </div>
                 </>: (
                     <>
@@ -109,6 +125,11 @@ handleSearchItems()
                 )}
 
 
+
+                <div className='hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white border border-gray-200 shadow-sm'>
+                    <span className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-400'}`}></span>
+                    <span className='text-gray-600'>{isConnected ? 'Live' : 'Offline'}</span>
+                </div>
 
                 <div className='w-[40px] h-[40px] rounded-full flex items-center justify-center bg-[#ff4d2d] text-white text-[18px] shadow-xl font-semibold cursor-pointer' onClick={() => setShowInfo(prev => !prev)}>
                     {userData?.fullName.slice(0, 1)}

@@ -7,17 +7,21 @@ import { setUserData } from '../redux/userSlice'
 function useGetCurrentUser() {
     const dispatch=useDispatch()
   useEffect(()=>{
-  const fetchUser=async () => {
-    try {
-           const result=await axios.get(`${serverUrl}/api/user/current`,{withCredentials:true})
-            dispatch(setUserData(result.data))
-  
-    } catch (error) {
-        console.log(error)
+    const hasToken = document.cookie.split('; ').some(cookie => cookie.startsWith('token='))
+    if (!hasToken) return
+
+    const fetchUser=async () => {
+      try {
+        const result=await axios.get(`${serverUrl}/api/user/current`,{withCredentials:true})
+        dispatch(setUserData(result.data))
+      } catch (error) {
+        if (error.response?.status !== 401) {
+          console.log(error)
+        }
+      }
     }
-}
-fetchUser()
- 
+
+    fetchUser()
   },[])
 }
 

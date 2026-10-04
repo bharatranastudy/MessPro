@@ -6,20 +6,23 @@ import { setShopsInMyCity, setUserData } from '../redux/userSlice'
 
 function useGetShopByCity() {
     const dispatch=useDispatch()
-    const {currentCity}=useSelector(state=>state.user)
+    const {currentCity, userData}=useSelector(state=>state.user)
   useEffect(()=>{
-  const fetchShops=async () => {
-    try {
-           const result=await axios.get(`${serverUrl}/api/shop/get-by-city/${currentCity}`,{withCredentials:true})
-            dispatch(setShopsInMyCity(result.data))
-           console.log(result.data)
-    } catch (error) {
-        console.log(error)
+    if (!userData?._id || !currentCity) return
+
+    const fetchShops=async () => {
+      try {
+        const result=await axios.get(`${serverUrl}/api/shop/get-by-city/${currentCity}`,{withCredentials:true})
+        dispatch(setShopsInMyCity(result.data))
+        console.log(result.data)
+      } catch (error) {
+        if (error.response?.status !== 401) {
+          console.log(error)
+        }
+      }
     }
-}
-fetchShops()
- 
-  },[currentCity])
+    fetchShops()
+  },[currentCity, userData?._id])
 }
 
 export default useGetShopByCity

@@ -5,6 +5,7 @@ import User from "../models/user.model.js"
 import { sendDeliveryOtpMail } from "../utils/mail.js"
 import RazorPay from "razorpay"
 import dotenv from "dotenv"
+import { count } from "console"
 
 dotenv.config()
 let instance = new RazorPay({
@@ -221,15 +222,24 @@ export const updateOrderStatus = async (req, res) => {
         let deliveryBoysPayload = []
         if (status == "out of delivery" && !shopOrder.assignment) {
             const { longitude, latitude } = order.deliveryAddress
-            const nearByDeliveryBoys = await User.find({
-                role: "deliveryBoy",
-                location: {
-                    $near: {
-                        $geometry: { type: "Point", coordinates: [Number(longitude), Number(latitude)] },
-                        $maxDistance: 5000
+            let nearByDeliveryBoys = []
+            try {
+                nearByDeliveryBoys = await User.find({
+                    role: "deliveryBoy",
+                    location: {
+                        $near: {
+                            $geometry: { type: "Point", coordinates: [Number(longitude), Number(latitude)] },
+                            $maxDistance: 5000
+                        }
                     }
-                }
-            })
+                })
+            } catch (err) {
+                console.log("GeoNear query error, falling back to role deliveryBoy:", err.message)
+            }
+
+            if (!nearByDeliveryBoys || nearByDeliveryBoys.length === 0) {
+                nearByDeliveryBoys = await User.find({ role: "deliveryBoy" })
+            }
 
             const nearByIds = nearByDeliveryBoys.map(b => b._id)
             const busyIds = await DeliveryAssignment.find({
@@ -281,7 +291,7 @@ export const updateOrderStatus = async (req, res) => {
                             orderId: deliveryAssignment.order._id,
                             shopName: deliveryAssignment.shop.name,
                             deliveryAddress: deliveryAssignment.order.deliveryAddress,
-                            items: deliveryAssignment.order.shopOrders.find(so => so._id.equals(deliveryAssignment.shopOrderId)).shopOrderItems || [],
+                            items: deliveryAssignment.order.shopOrders.find(so => so._id.equals(deliveryAssignment.shopOrderId))?.shopOrderItems || [],
                             subtotal: deliveryAssignment.order.shopOrders.find(so => so._id.equals(deliveryAssignment.shopOrderId))?.subtotal
                         })
                     }
@@ -418,10 +428,10 @@ export const getCurrentOrder = async (req, res) => {
             })
 
         if (!assignment) {
-            return res.status(400).json({ message: "assignment not found" })
+            return res.status(200).json(null)
         }
         if (!assignment.order) {
-            return res.status(400).json({ message: "order not found" })
+            return res.status(200).json(null)
         }
 
         const shopOrder = assignment.order.shopOrders.find(so => String(so._id) == String(assignment.shopOrderId))
@@ -532,7 +542,53 @@ export const verifyDeliveryOtp = async (req, res) => {
     }
 }
 
+export const getTodayDeliveries=async (req,res) => {
+    try {
+        const deliveryBoyId=req.userId
+        const startsOfDay=new Date()
+        startsOfDay.setHours(0,0,0,0)
 
+        const orders=await Order.find({
+           "shopOrders.assignedDeliveryBoy":deliveryBoyId,
+           "shopOrders.status":"delivered",
+           "shopOrders.deliveredAt":{$gte:startsOfDay}
+        }).lean()
+
+     let todaysDeliveries=[] 
+     
+     orders.forEach(order=>{
+        order.shopOrders.forEach(shopOrder=>{
+            if(shopOrder.assignedDeliveryBoy==deliveryBoyId &&
+                shopOrder.status=="delivered" &&
+                shopOrder.deliveredAt &&
+                shopOrder.deliveredAt>=startsOfDay
+            ){
+                todaysDeliveries.push(shopOrder)
+            }
+        })
+     })
+
+let stats={}
+
+todaysDeliveries.forEach(shopOrder=>{
+    const hour=new Date(shopOrder.deliveredAt).getHours()
+    stats[hour]=(stats[hour] || 0) + 1
+})
+
+let formattedStats=Object.keys(stats).map(hour=>({
+ hour:parseInt(hour),
+ count:stats[hour]   
+}))
+
+formattedStats.sort((a,b)=>a.hour-b.hour)
+
+return res.status(200).json(formattedStats)
+  
+
+    } catch (error) {
+        return res.status(500).json({ message: `today deliveries error ${error}` }) 
+    }
+}
 
 
 

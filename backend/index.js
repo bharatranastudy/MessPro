@@ -14,6 +14,8 @@ import http from "http"
 import { Server } from "socket.io"
 import { socketHandler } from "./socket.js"
 
+import errorHandler from "./middlewares/errorHandler.js"
+
 const app=express()
 const server=http.createServer(app)
 
@@ -27,8 +29,6 @@ const io=new Server(server,{
 
 app.set("io",io)
 
-
-
 const port=process.env.PORT || 5000
 app.use(cors({
     origin:"http://localhost:5173",
@@ -36,11 +36,15 @@ app.use(cors({
 }))
 app.use(express.json())
 app.use(cookieParser())
+app.use("/public", express.static("public"))
+app.use(express.static("public"))
 app.use("/api/auth",authRouter)
 app.use("/api/user",userRouter)
 app.use("/api/shop",shopRouter)
 app.use("/api/item",itemRouter)
 app.use("/api/order",orderRouter)
+
+app.use(errorHandler)
 
 socketHandler(io)
 server.listen(port,()=>{

@@ -9,22 +9,20 @@ function useGetMyOrders() {
     const dispatch=useDispatch()
     const {userData}=useSelector(state=>state.user)
   useEffect(()=>{
-  const fetchOrders=async () => {
-    try {
-           const result=await axios.get(`${serverUrl}/api/order/my-orders`,{withCredentials:true})
-            dispatch(setMyOrders(result.data))
-   
+    if (!userData?._id) return
 
-
-    } catch (error) {
-        console.log(error)
+    const fetchOrders=async () => {
+      try {
+        const result=await axios.get(`${serverUrl}/api/order/my-orders`,{withCredentials:true})
+        dispatch(setMyOrders(result.data))
+      } catch (error) {
+        if (error.response?.status !== 401) {
+          console.log(error)
+        }
+      }
     }
-}
-  fetchOrders()
-
- 
-  
-  },[userData])
+    fetchOrders()
+  },[userData?._id])
 }
 
 export default useGetMyOrders
